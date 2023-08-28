@@ -1,0 +1,11 @@
+name: numts
+channels:
+  - conda-forge
+  - bioconda
+  - r
+dependencies:
+  - python
+  - snakemake
+  - biopython
+  - scipy
+  - pandas

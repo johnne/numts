@@ -1,0 +1,2 @@
+filters: ["length","bitscore"]
+dataset: "lep"
