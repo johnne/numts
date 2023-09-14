@@ -1,2 +1,5 @@
 filters: ["length","bitscore"]
 dataset: "lep"
+blast:
+  dbdir: "/sw/data/uppnex/blast_databases/"
+  settings: "-max_target_seqs 1000"

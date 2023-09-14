@@ -135,3 +135,35 @@ rule filter:
         df_filt.to_csv(output.filt, sep="\t")
         df_outliers = df.loc[outliers]
         df_outliers.to_csv(output.outliers, sep="\t")
+
+rule blastn:
+    output:
+        "results/blastn/{dataset}/{dataset}.blastn.out"
+    threads: 10
+    params:
+        blastn_settings = config["blast"]["settings"]
+    envmodules:
+        "bioinfo-tols",
+        "blast/2.14.1+"
+    shell:
+        """
+        blastn -num_threads {threads} -outfmt 6 -db $db -query $query -out $tmp_out 2 > lep.blast.log
+        """
+
+rule blastdbcmd:
+    output:
+        "results/blastn/{dataset}/{dataset}.hits.tsv"
+    input:
+        rules.blastn.output[0]
+    params:
+        blast_dir=config["blast"]["dbdir"],
+        tmpdir="$TMPDIR"
+    envmodules:
+        "bioinfo-tols",
+        "blast/2.14.1+"
+    shell:
+        """
+        cut -f2 {input.blastout} | sort -u > {params.tmpdir}/hits
+        blastdbcmd -outfmt "%a\t%l\t%t" -db {params.blast_dir}/nt -entry_batch {params.tmpdir}/hits | sed 's/\\t/\t/g' > {output[0]}
+        rm {params.tmpdir}/hits
+        """
