@@ -1,5 +1,8 @@
 import os
 
+def mem_allowed(wildcards, threads):
+    return max(threads * 6400, 6400)
+
 configfile: "config.yml"
 
 rule all:
@@ -138,16 +141,25 @@ rule filter:
 
 rule blastn:
     output:
-        "results/blastn/{dataset}/{dataset}.blastn.out"
+        out = "results/blastn/{dataset}/{dataset}.blastn.out"
+    input:
+        fasta = "data/{dataset}.fasta"
+    log:
+        "logs/{dataset}/blastn.log"
     threads: 10
     params:
-        blastn_settings = config["blast"]["settings"]
+        blastn_settings = config["blast"]["settings"],
+        blast_dir=config["blast"]["dbdir"],
+        out = "$TMPDIR/out"
     envmodules:
         "bioinfo-tols",
         "blast/2.14.1+"
+    resources:
+        runtime = 60 * 24 * 10
     shell:
         """
-        blastn -num_threads {threads} -outfmt 6 -db $db -query $query -out $tmp_out 2 > lep.blast.log
+        blastn -num_threads {threads} -outfmt 6 -db {params.blast_dir}/nt -query {input.fasta} {params.blastn_settings} -out {params.out} 2 > {log}
+        mv {params.out} {output.out}
         """
 
 rule blastdbcmd:
@@ -161,9 +173,47 @@ rule blastdbcmd:
     envmodules:
         "bioinfo-tols",
         "blast/2.14.1+"
+    resources:
+        runtime = 60 * 10
     shell:
         """
         cut -f2 {input.blastout} | sort -u > {params.tmpdir}/hits
         blastdbcmd -outfmt "%a\t%l\t%t" -db {params.blast_dir}/nt -entry_batch {params.tmpdir}/hits | sed 's/\\t/\t/g' > {output[0]}
         rm {params.tmpdir}/hits
+        """
+
+## VSEARCH ALIGNMENTS ##
+rule vsearch_align:
+    input:
+        fasta="data/{dataset}.fasta",
+    output:
+        dist="results/vsearch/{dataset}/dist.gz",
+    log:
+        "logs/vsearch/{dataset}_align.log",
+    params:
+        dist="$TMPDIR/vsearch/{dataset}/dist",
+        fasta="$TMPDIR/vsearch/{dataset}/fasta",
+        tmpdir="$TMPDIR/vsearch/{dataset}",
+        id=config["vsearch"]["id"],
+        iddef=config["vsearch"]["iddef"],
+        query_cov=config["vsearch"]["query_cov"],
+    threads: config["vsearch"]["threads"]
+    conda:
+        "envs/vsearch.yml"
+    envmodules:
+        "bioinfo-tools",
+        "vsearch/2.18.0"
+    resources:
+        runtime=60 * 24 * 10,
+        mem_mb=mem_allowed,
+    shell:
+        """
+        mkdir -p {params.tmpdir}
+        cp {input.fasta} {params.fasta}
+        vsearch --usearch_global {params.fasta} --db {params.fasta} --self \
+            --userout {params.dist} -userfields query+target+id --maxaccepts 0 --maxrejects 0 \
+            --id {params.id} --iddef {params.iddef}  --query_cov {params.query_cov} --threads {threads} > {log} 2>&1
+        gzip {params.dist}
+        mv {params.dist}.gz {output.dist}
+        rm -rf {params.tmpdir} 
         """

@@ -3,3 +3,8 @@ dataset: "lep"
 blast:
   dbdir: "/sw/data/uppnex/blast_databases/"
   settings: "-max_target_seqs 1000"
+vsearch:
+  threads: 10
+  id: 0.84
+  iddef: "1"
+  query_cov: 0.9
