@@ -1,0 +1,14 @@
+slurm: "True"
+rerun-triggers: "mtime"
+rerun-incomplete: True
+reason: "True"
+keep-going: "True"
+cluster-cancel: "scancel"
+restart-times: "0"
+local-cores: 1
+default-resources: "mem_mb=6400"
+use-conda: "False"
+use-singularity: "False"
+use-envmodules: "True"
+jobs: "500"
+printshellcmds: "True"
