@@ -166,7 +166,7 @@ rule blastdbcmd:
     output:
         "results/blastn/{dataset}/{dataset}.hits.tsv"
     input:
-        rules.blastn.output[0]
+        blastout = rules.blastn.output[0]
     params:
         blast_dir=config["blast"]["dbdir"],
         tmpdir="$TMPDIR"
