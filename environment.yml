@@ -9,3 +9,6 @@ dependencies:
   - biopython
   - scipy
   - pandas
+  - black
+  - tqdm
+  - snakefmt
