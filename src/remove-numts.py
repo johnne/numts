@@ -35,9 +35,17 @@ def sort_asvs(df):
     return df.sum(axis=1).sort_values(ascending=False)
 
 
-def get_closest(counts, asv, pids):
+def get_closest(counts, asv, pids, numts):
+    """
+    counts: dataframe with counts for asvs (rows) in samples (columns)
+    asv: asv under examination
+    pids: dataframe of pairwise identities
+    numts: list of already identified numts
+    """
     # get list of asvs in sample
-    asvs_in_sample = counts.loc[counts > 0].index
+    asvs_in_sample = set(counts.loc[counts > 0].index)
+    # remove asvs that are marked as numts already
+    asvs_in_sample = list(asvs_in_sample.difference(numts.keys()))
     # get all pairwise ids for current asv
     pids = pids.loc[(pids.asv1 == asv)]
     # then subset to comparisons with asvs found in sample
@@ -105,7 +113,7 @@ def main(args):
         max_sample = idxmax.loc[asv]
         counts = countsdf.loc[:, max_sample]
         # find the closest ASV
-        closest_asv = get_closest(counts, asv, pids)
+        closest_asv = get_closest(counts, asv, pids, numts)
         # if there are no comparisons for the ASV in this sample (e.g. if no other ASV
         # has a pid above the vsearch minimum pident (84%) then closest_asv is None and we treat this
         # ASV as a real sequence
@@ -172,7 +180,13 @@ def main(args):
 
 
 if __name__ == "__main__":
-    parser = ArgumentParser()
+    parser = ArgumentParser(
+    """
+    This script identifies NUMTs by taking read counts distribution and pairwise identities into account
+
+    python remove-numts.py counts.tsv pairwise_ids.tsv > numts_results.tsv
+    """
+    )
     parser.add_argument(
         "countsfile",
         type=str,
