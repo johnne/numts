@@ -1,2 +1,7 @@
 .snakemake
 results
+.idea
+*.swp
+data
+*checkpoint.ipynb
+logs
