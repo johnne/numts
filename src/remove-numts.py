@@ -181,7 +181,7 @@ def main(args):
 
 if __name__ == "__main__":
     parser = ArgumentParser(
-    """
+        """
     This script identifies NUMTs by taking read counts distribution and pairwise identities into account
 
     python remove-numts.py counts.tsv pairwise_ids.tsv > numts_results.tsv
