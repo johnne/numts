@@ -1,30 +1,5 @@
 #!/usr/bin/env python
 
-"""
-“Consistent echo” algorithm
-This algorithmic idea can be made fairly sophisticated but I start here with a very simple version to get us started.
-We assume that data has been clustered first with swarm.
-
-1. Order all swarm clusters in order of total number of reads across all samples (asv_reps.counts.tsv)
-2. Start from the top. The first cluster is not a numt. Then repeat the following steps:
-3. Find the sample in which the cluster is most abundant.
-4. Find the closest (to start with, we can use just p distance but a more sophisticated method would probably be better)
-other cluster in that sample.
-5. If the closest cluster is more common (we might want to introduce some stricter threshold here, like twice as abundant)
-we proceed, otherwise is not a numt and is added to the real COI clusters
-6. Now we check for the consistent echo signal. For instance, one could demand that the closest more abundant cluster (the
-assumed real COI sequence)  is present in, say, 80% or more of the samples in which we find the cluster being tested,
-and always more abundant (or twice as abundant, for a stricter criterion). We could also allow exceptions for samples
-in which the cluster under testing is present in very low number of reads (say less than 3 or less than 5 reads),
-assuming that this could be contamination. If the cluster is an ‘echo’ of another cluster, it is a numt. Otherwise
-it is not and is added to the list of real COI clusters
-
-Note: The closest cluster should be based on real evolutionary distance (taking the evolutionary constraints on COI into
-account) rather than p-distance, this could be important. One might expect a numt to be “closer” to a real COI sequence
-in terms of an error model (somewhat randomly distributed mutations) than in terms of an evolutionary model respecting
-the constraints on COI evolution. The opposite should be true for a non-numt. This could be incorporated as an additional
-criterion in the algorithm above.
-"""
 import pandas as pd
 import sys
 from tqdm import tqdm
@@ -35,28 +10,14 @@ def sort_asvs(df):
     return df.sum(axis=1).sort_values(ascending=False)
 
 
-def get_closest(counts, asv, pids, numts):
+def get_closest(pids):
     """
-    counts: dataframe with counts for asvs (rows) in samples (columns)
     asv: asv under examination
     pids: dataframe of pairwise identities
-    numts: list of already identified numts
     """
-    # get list of asvs in sample
-    asvs_in_sample = set(counts.loc[counts > 0].index)
-    # remove asvs that are marked as numts already
-    asvs_in_sample = list(asvs_in_sample.difference(numts.keys()))
-    # get all pairwise ids for current asv
-    pids = pids.loc[(pids.asv1 == asv)]
-    # then subset to comparisons with asvs found in sample
-    pids = pids.loc[pids.asv2.isin(asvs_in_sample)]
-    # get closest (here we assume the dataframe has percent identity instead of pairwise distance)
-    if pids.shape[0] == 0:
+    if pids.empty:
         return None
-    closest = list(pids.sort_values("pident", ascending=False).head(1).values[0][0:2])
-    # remove current ASV from list and leave only closest other ASV
-    closest.remove(asv)
-    return closest[0]
+    return pids.sort_values("pident", ascending=False).iloc[0].asv2
 
 
 def main(args):
@@ -112,8 +73,10 @@ def main(args):
         # find the sample in which the ASV is most abundant
         max_sample = idxmax.loc[asv]
         counts = countsdf.loc[:, max_sample]
+        asvs_in_sample = list(set(counts.index[counts>0]).difference(numts.keys()))
+        _pids = pids.loc[(pids.asv1==asv) & (pids.asv2.isin(asvs_in_sample))]
         # find the closest ASV
-        closest_asv = get_closest(counts, asv, pids, numts)
+        closest_asv = get_closest(_pids)
         # if there are no comparisons for the ASV in this sample (e.g. if no other ASV
         # has a pid above the vsearch minimum pident (84%) then closest_asv is None and we treat this
         # ASV as a real sequence
