@@ -5,6 +5,8 @@ def mem_allowed(wildcards, threads):
     return max(threads * 6400, 6400)
 
 
+localrules: longest_orfs, get_hmms, filter
+
 configfile: "config.yml"
 
 
@@ -27,6 +29,9 @@ rule orffinder:
     envmodules:
         "bioinfo-tools",
         "ORFfinder/0.4.3",
+    resources:
+        runtime = 60 * 4,
+        mem_mb = mem_allowed,
     shell:
         """
         ORFfinder -in {input} -ml 30 -g 5 -s 2 -n true -strand plus -out {output} -outfmt 0 > {log} 2>&1
@@ -92,6 +97,9 @@ rule hmmscan:
         "bioinfo-tools",
         "hmmer/3.3.2",
     threads: 4
+    resources:
+        runtime = 60 * 10,
+        mem_mb = mem_allowed,
     params:
         resource_dir=lambda wildcards, input: os.path.dirname(input.hmm[0]),
     shell:
@@ -156,10 +164,11 @@ rule filter:
         low_outliers = list(df.loc[df[f] < cutoff_lower].index)
         if f == "bitscore":
             high_outliers = []
+            df_filt = df.loc[df[f] >= cutoff_lower]
         else:
             high_outliers = list(df.loc[df[f] > cutoff_upper].index)
+            df_filt = df.loc[(df[f] <= cutoff_upper) & (df[f] >= cutoff_lower)]
         outliers = low_outliers + high_outliers
-        df_filt = df.loc[(df[f] <= cutoff_upper) & (df[f] >= cutoff_lower)]
         df_filt.to_csv(output.filt, sep="\t")
         df_outliers = df.loc[outliers]
         df_outliers.to_csv(output.outliers, sep="\t")
@@ -172,7 +181,7 @@ rule blastn:
         fasta="data/{dataset}.fasta",
     log:
         "logs/{dataset}/blastn.log",
-    threads: 10
+    threads: 20
     params:
         blastn_settings=config["blast"]["settings"],
         blast_dir=config["blast"]["dbdir"],
@@ -182,6 +191,7 @@ rule blastn:
         "blast/2.14.1+",
     resources:
         runtime=60 * 24 * 10,
+        mem_mb = mem_allowed
     shell:
         """
         blastn -num_threads {threads} -outfmt 6 -db {params.blast_dir}/nt -query {input.fasta} {params.blastn_settings} -out {params.out} 2 > {log}
